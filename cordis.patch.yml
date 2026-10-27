@@ -1,0 +1,15 @@
+# ============================================================================
+# dsh-background-wallpaper —— DSH bundle patch（挂载声明）
+# ============================================================================
+# DSH 启动时按 bundle 层叠加载各插件的 patch；本文件把背景图插件插入
+# 当前 profile 的配置树。
+#
+# 安装方式（任选其一）：
+#   dsh plugin --profile desktop add link:<本目录绝对路径>
+#   或手工：复制本包到 profile 的 node_modules，并在 profile package.json
+#           的 dsh.profile.bundles 数组里加入 "dsh-background-wallpaper"。
+# ============================================================================
+
+- insert:
+    - id: dsh-background-wallpaper
+      name: dsh-background-wallpaper
