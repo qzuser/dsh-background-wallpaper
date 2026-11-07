@@ -353,14 +353,14 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
     `html=${r.vars['--wp-alpha-light']} tagKeys=${onTag.join(',') || 'none'}`)
 }
 
-// C1 设置界面：底色压到 90%（图只剩一层色），深浅各一条
+// C1 设置界面：底色压到 90%（图只剩一层色），深浅各一条 —— 只在 ui.settingsDim 打开时才可能匹配（见 C7）
 {
   const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
-  const lightRule = r.css.includes('html.dsh-wallpaper-on.dsh-wallpaper-settings-on body')
+  const lightRule = r.css.includes('html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body')
     && r.css.includes('--wp-tint:90%;--wp-dim-light:0')
-  const darkRule = r.css.includes('html.dsh-wallpaper-on.dsh-wallpaper-settings-on body[data-ds-dark-theme]')
+  const darkRule = r.css.includes('html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body[data-ds-dark-theme]')
     && r.css.includes('--wp-tint-dark:90%;--wp-dim-dark:0')
-  check('C1 设置页压到 90%（浅/深各一条）', lightRule && darkRule,
+  check('C1 设置页压到 90%（浅/深各一条，且都要 dim-on 才生效）', lightRule && darkRule,
     `light=${lightRule} dark=${darkRule}`)
 }
 
@@ -391,8 +391,8 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
   const noHash = !/tklpSG|Vn-AbG/.test(r.css)
   const hasParts = [...r.css.matchAll(/:has\(([^)]*)\)/g)].map((m) => m[1])
   const stableHas = hasParts.length === 2 && hasParts.every((s) => s === '[data-shortcut-modal="settings"]')
-  const classRule = r.css.match(/html\.dsh-wallpaper-on\.dsh-wallpaper-settings-on body[^{]*\{[^}]*\}/)
-  const hasRule = r.css.match(/html\.dsh-wallpaper-on body:has\([^{]*\{[^}]*\}/)
+  const classRule = r.css.match(/html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on\.dsh-wallpaper-settings-on body[^{]*\{[^}]*\}/)
+  const hasRule = r.css.match(/html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on body:has\([^{]*\{[^}]*\}/)
   const independent = !!classRule && !classRule[0].includes(':has(')
     && !!hasRule && !hasRule[0].includes('settings-on')
   const stableAttr = SCRIPT.includes('SETTINGS_DIALOG_SELECTOR = \'[data-shortcut-modal="settings"]')
@@ -437,6 +437,29 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
 {
   const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} }, false, { dialog: () => false })
   check('C6 无弹层时不打标记', r.settingsOn === false, String(r.settingsOn))
+}
+
+// C7 压暗开关：默认关 → 不挂 dim-on；打开 → 挂上；壁纸关掉时也不挂
+{
+  const off = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
+  check('C7a 默认（无 settingsDim）不挂 dim-on',
+    off.root.classList.contains('dsh-wallpaper-dim-on') === false,
+    JSON.stringify([...off.root.classList.set]))
+
+  const onCfg = { enabled: true, ...BASE_IMG, style: {}, ui: { settingsDim: true } }
+  const on = await bootClient(onCfg)
+  check('C7b settingsDim=true 挂 dim-on', on.root.classList.contains('dsh-wallpaper-dim-on') === true,
+    JSON.stringify([...on.root.classList.set]))
+
+  const disabled = await bootClient({ ...onCfg, enabled: false })
+  check('C7c 壁纸关掉时不挂 dim-on', disabled.root.classList.contains('dsh-wallpaper-dim-on') === false,
+    JSON.stringify([...disabled.root.classList.set]))
+
+  // 开关关着时，三条 90% 规则里任何一条都带 dim-on 前提 → 一条也匹配不上
+  const gated = [off.css.indexOf('settings-on body'), off.css.indexOf('settings-panel body')]
+    .map((i) => (i < 0 ? '' : off.css.slice(i - 40, i + 1)))
+  const allGated = gated.every((s) => s.includes('dsh-wallpaper-dim-on'))
+  check('C7d 90% 规则全部带 dim-on 前提', allGated, JSON.stringify(gated))
 }
 
 console.log('\n' + results.filter((r) => r.ok).length + ' passed, ' + results.filter((r) => !r.ok).length + ' failed')

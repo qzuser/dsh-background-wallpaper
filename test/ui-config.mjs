@@ -138,7 +138,7 @@ function postCfg(config) {
   await postCfg(next)
   const back = await getCfg()
   const got = JSON.stringify(back.ui)
-  check('extra fields stripped', got === '{"buttonPos":{"left":10,"top":20},"showButton":false}', got)
+  check('extra fields stripped', got === '{"buttonPos":{"left":10,"top":20},"showButton":false,"settingsDim":false}', got)
 }
 
 // 6. Infinity coordinates are rejected
@@ -162,9 +162,30 @@ function postCfg(config) {
   check('showButton true persists', (await getCfg()).ui.showButton === true)
 
   const off = JSON.parse(JSON.stringify(await getCfg()))
-  off.ui = { buttonPos: null, showButton: false }
+  off.ui = { buttonPos: null, showButton: false, settingsDim: false }
   await postCfg(off)
   check('showButton false persists', (await getCfg()).ui.showButton === false)
+}
+
+// 7b. 设置界面压暗：默认关，开关能存住，非布尔回落 false
+{
+  const d = await getCfg()
+  check('settingsDim 默认关', d.ui.settingsDim === false, JSON.stringify(d.ui))
+
+  const on = JSON.parse(JSON.stringify(d))
+  on.ui.settingsDim = true
+  await postCfg(on)
+  check('settingsDim true persists', (await getCfg()).ui.settingsDim === true)
+
+  const back = JSON.parse(JSON.stringify(await getCfg()))
+  back.ui.settingsDim = 'yes'
+  await postCfg(back)
+  check('settingsDim 非布尔回落 false', (await getCfg()).ui.settingsDim === false)
+
+  const legacy = JSON.parse(JSON.stringify(await getCfg()))
+  delete legacy.ui.settingsDim
+  await postCfg(legacy)
+  check('旧配置没有 settingsDim 时补成 false', (await getCfg()).ui.settingsDim === false)
 }
 
 // 8. non-boolean showButton falls back to default

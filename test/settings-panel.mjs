@@ -204,9 +204,11 @@ check('marks current image', text.includes('当前'))
 check('renders 轮换 section', text.includes('自动轮换') && text.includes('随机轮换'))
 check('renders 样式 section', text.includes('界面不透明度') && text.includes('暗化遮罩'))
 check('renders theme tabs', text.includes('浅色') && text.includes('深色'))
-check('explains two independent sets', text.includes('深浅各一套'))
+check('explains two independent sets', text.includes('各自独立') || text.includes('深浅各一套') || text.includes('预览按当前页签这套参数画'))
 check('renders shortcut toggle', text.includes('显示悬浮按钮'))
 check('default showButton off in note', text.includes('默认关掉'))
+check('renders 设置界面压暗 switch', text.includes('设置界面压暗背景') && text.includes('跟普通界面一样'))
+check('explains 压暗 default off', text.includes('关（默认）'))
 
 // 5b. 样式预览：按当前页签那套参数画（图 → 底色 → 遮罩 → 界面示意）
 {

@@ -202,26 +202,27 @@
     'transform:scale(var(--wp-scale-dark,1));opacity:var(--wp-opacity-dark,1)}' +
     'html.dsh-wallpaper-on body[data-ds-dark-theme] #dsh-wallpaper-dim{opacity:var(--wp-dim-dark,0)}' +
 
-    // 设置界面单独一档：底色压到 90%（图只剩一层色），连弹层背后那层遮罩一起压，
-    // 这样整个设置界面是一层主题色，而不是「对话框实、四周还透」。
+    // 设置界面单独一档（默认关，设置里打开「设置界面压暗」才生效）：
+    // 底色压到 90%（图只剩一层色），连弹层背后那层遮罩一起压，整屏是一层主题色。
+    // 默认关 = 设置界面和普通界面一样透 —— 改壁纸时能自己看见效果。
     // 三个入口互为兜底，全部只认稳定特征，不碰会随构建变化的哈希类名（tklpSG_overlay → Vn-AbG_overlay）：
     //   .dsh-wallpaper-settings-on    设置弹层开着（MutationObserver 维护，见 watchSettingsView）
     //   .dsh-wallpaper-settings-panel 本插件设置页挂载时的标记
     //   :has([data-shortcut-modal="settings"])  纯 CSS 兜底，不依赖任何 JS
-    // 其余界面完全不受影响：只在上述前提下重设变量，离开即恢复。
-    'html.dsh-wallpaper-on.dsh-wallpaper-settings-on body,' +
-    'html.dsh-wallpaper-on.dsh-wallpaper-settings-panel body' +
+    // 三条都还要 .dsh-wallpaper-dim-on（配置里的 ui.settingsDim）—— 开关关着时这些规则一条都不匹配。
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body,' +
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-panel body' +
     '{--wp-tint:' + SETTINGS_VIEW_TINT + ';--wp-dim-light:0;' +
     '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-00) ' + SETTINGS_VIEW_TINT + ', transparent)}' +
-    'html.dsh-wallpaper-on.dsh-wallpaper-settings-on body[data-ds-dark-theme],' +
-    'html.dsh-wallpaper-on.dsh-wallpaper-settings-panel body[data-ds-dark-theme]' +
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body[data-ds-dark-theme],' +
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-panel body[data-ds-dark-theme]' +
     '{--wp-tint-dark:' + SETTINGS_VIEW_TINT + ';--wp-dim-dark:0;' +
     '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-950) ' + SETTINGS_VIEW_TINT + ', transparent)}' +
     // 纯 CSS 兜底：独立成条，万一 :has() 不被支持，只是这一条整体失效，上面靠 class 的照常生效。
-    'html.dsh-wallpaper-on body:has([data-shortcut-modal="settings"])' +
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on body:has([data-shortcut-modal="settings"])' +
     '{--wp-tint:' + SETTINGS_VIEW_TINT + ';--wp-dim-light:0;' +
     '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-00) ' + SETTINGS_VIEW_TINT + ', transparent)}' +
-    'html.dsh-wallpaper-on body[data-ds-dark-theme]:has([data-shortcut-modal="settings"])' +
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on body[data-ds-dark-theme]:has([data-shortcut-modal="settings"])' +
     '{--wp-tint-dark:' + SETTINGS_VIEW_TINT + ';--wp-dim-dark:0;' +
     '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-950) ' + SETTINGS_VIEW_TINT + ', transparent)}'
 
@@ -359,6 +360,9 @@
     ensureDom()
     var on = !!(state.enabled && state.images && state.images.length)
     document.documentElement.classList.toggle('dsh-wallpaper-on', on)
+    // 设置界面压暗（默认关）：打开时才让上面那组 90% 规则有机会匹配
+    var ui = state.ui || {}
+    document.documentElement.classList.toggle('dsh-wallpaper-dim-on', !!(on && ui.settingsDim))
 
     // 两套样式各自成组喂给 CSS：浅色的全部写 -light 后缀，深色的写 -dark 后缀。
     // 浏览器按 body[data-ds-dark-theme] 自己挑，前端不需要判断当前是哪个主题，
