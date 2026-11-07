@@ -372,8 +372,8 @@ if (lightRange) {
   const r = render()
   check('挂载时注册了标记 effect', r.effects.length >= 1, 'n=' + r.effects.length)
   for (const fn of r.effects) fn()
-  const on = document.documentElement.classList.contains('dsh-wallpaper-settings-on')
-  check('设置页打开时 <html> 带 dsh-wallpaper-settings-on', on, JSON.stringify([...document.documentElement.classList.set]))
+  const on = document.documentElement.classList.contains('dsh-wallpaper-settings-panel')
+  check('设置页挂载时 <html> 带 dsh-wallpaper-settings-panel', on, JSON.stringify([...document.documentElement.classList.set]))
 }
 
 const fail = results.filter((x) => !x.ok).length

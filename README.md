@@ -173,17 +173,28 @@ CSS 里浅色块读 light 组、`body[data-ds-dark-theme]` 覆盖成 dark 组：
 
 ### 设置界面单独一档：底色压到 90%
 
-打开设置时底色临时压到九成（`--wp-tint: 90%`），图只剩一层色，读设置项不费眼；遮罩同时归零，
-避免黑上加黑。退出设置立刻回到该主题原本的数值，**普通界面里图照常显示**。触发条件有两路，互为备份：
+打开设置时底色临时压到九成（`--wp-tint: 90%`），图只剩一层色，读设置项不费眼；弹层背后那层遮罩
+（`--dsw-alias-bg-mask-1`）同时压到同一档，所以整屏是一层主题色，而不是「对话框实、四周还透」；
+暗化遮罩归零，避免黑上加黑。退出设置立刻回到该主题原本的数值，**普通界面里图照常显示**。
 
-- `html.dsh-wallpaper-on.dsh-wallpaper-settings-on body{…}` —— 本插件设置页挂载时在 `<html>`
-  打 `dsh-wallpaper-settings-on`，卸载时移除（自己挂载/卸载即信号，不依赖 DSH 私有类名）
-- `html.dsh-wallpaper-on body:has(.tklpSG_overlay){…}` —— 纯 CSS 认 DSH 设置弹层的遮罩元素，
-  这样切到别的设置分区时这一档同样生效
+触发条件三路，互为备份 —— 全部只认稳定特征，**不碰会随构建变化的哈希类名**
+（同一个弹层，旧版是 `tklpSG_overlay`，新版是 `Vn-AbG_overlay`）：
 
-两条规则都排在基础规则之后，靠顺序 + 稍高的特异性覆盖，且都带前提选择器，不会漏到普通界面。
+| 入口 | 覆盖范围 | 依赖 |
+| --- | --- | --- |
+| `html.dsh-wallpaper-on.dsh-wallpaper-settings-on body{…}` | 整个设置弹层 | `MutationObserver` 盯 `document.body` 的 `childList`，弹层开关即切换 |
+| `html.dsh-wallpaper-on.dsh-wallpaper-settings-panel body{…}` | 本插件设置页 | 插件设置页挂载时给 `<html>` 打标记，卸载即移除 |
+| `html.dsh-wallpaper-on body:has([data-shortcut-modal="settings"]){…}` | 整个设置弹层 | 纯 CSS，不依赖任何 JS |
+
+三条都排在基础规则之后，靠顺序 + 稍高的特异性覆盖，且都带前提选择器，不会漏到普通界面。
+`:has` 那条**单独成条**：万一运行时不支持 `:has()`，只是这一条整体失效，靠 class 的两条照常工作
+（`C3` 测试同时钉住「无哈希类名」「`:has` 只认稳定属性」「独立成条」三件事）。
+
 测试 `C1`（数值）、`C1b`（方向：设置页 90 必须大于浅色 42 / 深色 26）、`C2`（顺序与作用域）、
-`C3`（`:has` 入口）钉住这几条。
+`C3`（触发条件）、`C4`（遮罩同步压）、`C5`（开关弹层时的 class 切换）、`C6`（无弹层时不动）钉住这一档。
+
+设置弹层的稳定特征：`data-shortcut-modal="settings"`，以及 DSH 自己的模态层约定
+`[role="dialog"][aria-modal="true"]`。
 
 按钮拖拽（仅在设置里打开「显示悬浮按钮」后生效）用指针事件（`pointerdown/move/up`），鼠标、触屏、触控笔通用：
 

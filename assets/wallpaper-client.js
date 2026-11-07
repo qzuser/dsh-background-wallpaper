@@ -157,6 +157,11 @@
   // 只在这一屏生效；离开设置立刻回到该主题原本的数值，图正常显示。
   var SETTINGS_VIEW_TINT = '90%'
 
+  // 设置弹层的稳定特征。CSS module 的类名每版构建都会换（tklpSG_overlay → Vn-AbG_overlay），
+  // 属性不会换：DSH 自己的模态层约定就是 [role="dialog"][aria-modal="true"]，
+  // 设置弹层另外还带 data-shortcut-modal="settings"。
+  var SETTINGS_DIALOG_SELECTOR = '[data-shortcut-modal="settings"],[role="dialog"][aria-modal="true"]'
+
   var STYLE_ID = 'dsh-wallpaper-style'
   var CSS_BASE =
     // 壁纸层：尺寸/模糊/缩放/不透明度全部走变量，浅色读 light 那组
@@ -197,16 +202,28 @@
     'transform:scale(var(--wp-scale-dark,1));opacity:var(--wp-opacity-dark,1)}' +
     'html.dsh-wallpaper-on body[data-ds-dark-theme] #dsh-wallpaper-dim{opacity:var(--wp-dim-dark,0)}' +
 
-    // 设置界面单独一档：底色压到 90%（图只剩一层色），并且不带暗化遮罩。
-    // 两种入口都认：DSH 设置弹层的遮罩元素（:has，纯 CSS，无需 JS），
-    // 以及本插件设置页挂载时打在 <html> 上的标记（不依赖任何私有类名，升级也不会失效）。
-    // 其余界面完全不受影响 —— 这两条只是在这两个前提下重设变量，离开即恢复。
+    // 设置界面单独一档：底色压到 90%（图只剩一层色），连弹层背后那层遮罩一起压，
+    // 这样整个设置界面是一层主题色，而不是「对话框实、四周还透」。
+    // 三个入口互为兜底，全部只认稳定特征，不碰会随构建变化的哈希类名（tklpSG_overlay → Vn-AbG_overlay）：
+    //   .dsh-wallpaper-settings-on    设置弹层开着（MutationObserver 维护，见 watchSettingsView）
+    //   .dsh-wallpaper-settings-panel 本插件设置页挂载时的标记
+    //   :has([data-shortcut-modal="settings"])  纯 CSS 兜底，不依赖任何 JS
+    // 其余界面完全不受影响：只在上述前提下重设变量，离开即恢复。
     'html.dsh-wallpaper-on.dsh-wallpaper-settings-on body,' +
-    'html.dsh-wallpaper-on body:has(.tklpSG_overlay)' +
-    '{--wp-tint:' + SETTINGS_VIEW_TINT + ';--wp-dim-light:0}' +
+    'html.dsh-wallpaper-on.dsh-wallpaper-settings-panel body' +
+    '{--wp-tint:' + SETTINGS_VIEW_TINT + ';--wp-dim-light:0;' +
+    '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-00) ' + SETTINGS_VIEW_TINT + ', transparent)}' +
     'html.dsh-wallpaper-on.dsh-wallpaper-settings-on body[data-ds-dark-theme],' +
-    'html.dsh-wallpaper-on body[data-ds-dark-theme]:has(.tklpSG_overlay)' +
-    '{--wp-tint-dark:' + SETTINGS_VIEW_TINT + ';--wp-dim-dark:0}'
+    'html.dsh-wallpaper-on.dsh-wallpaper-settings-panel body[data-ds-dark-theme]' +
+    '{--wp-tint-dark:' + SETTINGS_VIEW_TINT + ';--wp-dim-dark:0;' +
+    '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-950) ' + SETTINGS_VIEW_TINT + ', transparent)}' +
+    // 纯 CSS 兜底：独立成条，万一 :has() 不被支持，只是这一条整体失效，上面靠 class 的照常生效。
+    'html.dsh-wallpaper-on body:has([data-shortcut-modal="settings"])' +
+    '{--wp-tint:' + SETTINGS_VIEW_TINT + ';--wp-dim-light:0;' +
+    '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-00) ' + SETTINGS_VIEW_TINT + ', transparent)}' +
+    'html.dsh-wallpaper-on body[data-ds-dark-theme]:has([data-shortcut-modal="settings"])' +
+    '{--wp-tint-dark:' + SETTINGS_VIEW_TINT + ';--wp-dim-dark:0;' +
+    '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-950) ' + SETTINGS_VIEW_TINT + ', transparent)}'
 
   // 悬浮控件样式（面板、按钮；z-index 取极高值，确保盖住所有内容）
   // 按钮位置由 JS 写 left/top（可拖动），CSS 只给默认兜底与拖拽态样式
@@ -285,6 +302,36 @@
     // 外部同步用：改状态的同时把滑块外观一起刷新（只改 _input.checked 不会重绘轨道）
     box._set = function (v) { input.checked = !!v; sync() }
     return box
+  }
+
+  // ---------- 设置弹层探测 ----------
+  // 设置弹层是 createPortal 到 document.body 的直接子节点：开关都会让 body 的子节点变动，
+  // 所以只监听 childList 就够，不用 subtree（聊天流一直在吐节点，subtree 监听太贵）。
+  var settingsObserver = null
+
+  function settingsDialogOpen() {
+    if (typeof document === 'undefined' || !document.querySelector) return false
+    try {
+      return !!document.querySelector(SETTINGS_DIALOG_SELECTOR)
+    } catch (e) {
+      return false
+    }
+  }
+
+  /** 把「设置界面是否开着」同步成 <html> 上的 class（CSS 全靠这个 class 切档）。 */
+  function markSettingsView() {
+    if (typeof document === 'undefined' || !document.documentElement) return
+    var root = document.documentElement
+    if (!root.classList) return
+    root.classList.toggle('dsh-wallpaper-settings-on', settingsDialogOpen())
+  }
+
+  function watchSettingsView() {
+    markSettingsView()
+    if (settingsObserver || typeof MutationObserver === 'undefined') return
+    if (typeof document === 'undefined' || !document.body) return
+    settingsObserver = new MutationObserver(markSettingsView)
+    settingsObserver.observe(document.body, { childList: true })
   }
 
   // ---------- 配置应用 ----------
@@ -877,6 +924,9 @@
   // ---------- 启动 ----------
   function boot() {
     if (typeof fetch === 'undefined') return
+
+    // 设置弹层开/关 → 切 90% 那一档（含初始化时弹层已经开着的情况）
+    watchSettingsView()
 
     // 设置页改完配置会派发这个事件：立刻按新配置重画，不用等轮询
     window.addEventListener('dsh-wallpaper:config', function (ev) {

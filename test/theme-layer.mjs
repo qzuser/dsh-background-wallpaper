@@ -184,10 +184,13 @@ class El {
   getBoundingClientRect() { return { left: 0, top: 0, width: 40, height: 40, right: 40, bottom: 40 } }
 }
 let registry = new Map()
+let observers = []
 
 // 启动一次前端：注入指定配置，回读 <style> 上写下的变量
-async function bootClient(cfg, darkBody) {
+async function bootClient(cfg, darkBody, opts) {
+  const o = opts || {}
   registry = new Map()
+  observers = []
   const doc = {
     readyState: 'complete',
     documentElement: new El('html'),
@@ -195,7 +198,8 @@ async function bootClient(cfg, darkBody) {
     body: new El('body'),
     createElement: (t) => new El(t),
     getElementById: (id) => registry.get(id) || null,
-    querySelector: () => null,
+    // 模拟「设置弹层是否在 DOM 里」：打开时 querySelector 返回一个节点
+    querySelector: (sel) => (o.dialog && o.dialog() ? new El('div') : null),
     addEventListener() {},
   }
   if (darkBody) doc.body.setAttribute('data-ds-dark-theme', '')
@@ -220,11 +224,17 @@ async function bootClient(cfg, darkBody) {
   const fn = new Function(
     'window', 'document', 'fetch', 'setInterval', 'clearInterval', 'Image', 'console',
     'Promise', 'JSON', 'Math', 'encodeURIComponent', 'String', 'Array', 'Number', 'FileReader', 'setTimeout', 'ResizeObserver',
+    'MutationObserver',
     SCRIPT,
   )
+  class MutationObserverStub {
+    constructor(cb) { this.cb = cb; this.targets = []; observers.push(this) }
+    observe(target, init) { this.targets.push({ target, init }) }
+    disconnect() { this.targets = [] }
+  }
   fn(win, doc, fetchStub, () => 1, () => {}, win.Image, console, Promise, JSON, Math,
     encodeURIComponent, String, Array, Number, class { readAsDataURL() {} }, (cb, ms) => (ms === 0 ? cb() : 1),
-    class { observe() {} disconnect() {} })
+    class { observe() {} disconnect() {} }, MutationObserverStub)
   await new Promise((r) => setTimeout(r, 60))
   const tag = registry.get('dsh-wallpaper-style')
   return {
@@ -234,6 +244,10 @@ async function bootClient(cfg, darkBody) {
     css: tag ? tag.textContent : '',
     layer: registry.get('dsh-wallpaper-layer'),
     dim: registry.get('dsh-wallpaper-dim'),
+    // 设置弹层探测：<html> 上的 class 和注册的 MutationObserver
+    root: doc.documentElement,
+    settingsOn: doc.documentElement.classList.contains('dsh-wallpaper-settings-on'),
+    observers,
     doc,
   }
 }
@@ -371,12 +385,58 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
     `base=${baseDark} settings=${settingsRule} stray=${strayRule}`)
 }
 
-// C3 另一个入口：DSH 设置弹层的 :has 触发（纯 CSS，不依赖 JS 或私有类名之外的猜测）
+// C3 不依赖哈希类名；:has 只认稳定属性，且单独成条（不支持 :has 也不连累 class 那两条）
 {
   const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
-  const hasLight = r.css.includes('body:has(.tklpSG_overlay)')
-  const hasDark = r.css.includes('body[data-ds-dark-theme]:has(.tklpSG_overlay)')
-  check('C3 :has 触发存在（浅/深）', hasLight && hasDark, `light=${hasLight} dark=${hasDark}`)
+  const noHash = !/tklpSG|Vn-AbG/.test(r.css)
+  const hasParts = [...r.css.matchAll(/:has\(([^)]*)\)/g)].map((m) => m[1])
+  const stableHas = hasParts.length === 2 && hasParts.every((s) => s === '[data-shortcut-modal="settings"]')
+  const classRule = r.css.match(/html\.dsh-wallpaper-on\.dsh-wallpaper-settings-on body[^{]*\{[^}]*\}/)
+  const hasRule = r.css.match(/html\.dsh-wallpaper-on body:has\([^{]*\{[^}]*\}/)
+  const independent = !!classRule && !classRule[0].includes(':has(')
+    && !!hasRule && !hasRule[0].includes('settings-on')
+  const stableAttr = SCRIPT.includes('SETTINGS_DIALOG_SELECTOR = \'[data-shortcut-modal="settings"]')
+  const panelClass = r.css.includes('.dsh-wallpaper-settings-panel body')
+  check('C3 无哈希类名、:has 只认稳定属性且独立成条',
+    noHash && stableHas && independent && stableAttr && panelClass,
+    `noHash=${noHash} hasParts=${JSON.stringify(hasParts)} independent=${independent} attr=${stableAttr} panel=${panelClass}`)
+}
+
+// C4 遮罩也一起压：整个设置界面是一层主题色，而不是「对话框实、四周还透」
+{
+  const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
+  const lightMask = r.css.includes('--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-00) 90%')
+  const darkMask = r.css.includes('--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-950) 90%')
+  check('C4 设置遮罩同步压到 90%（浅/深）', lightMask && darkMask, `light=${lightMask} dark=${darkMask}`)
+}
+
+// C5 弹层探测：开着 → 打 class；关掉 → 摘掉；observer 只盯 body 的直接子节点
+{
+  let open = true
+  const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} }, false, { dialog: () => open })
+  check('C5a 弹层开着时打 dsh-wallpaper-settings-on', r.settingsOn === true, String(r.settingsOn))
+
+  const ob = r.observers[0]
+  check('C5b 注册了一个 MutationObserver',
+    !!ob && ob.targets.length === 1 && ob.targets[0].init.childList === true
+      && !ob.targets[0].init.subtree,
+    ob ? JSON.stringify(ob.targets[0].init) : 'none')
+
+  open = false
+  if (ob) ob.cb()
+  check('C5c 关掉弹层后 class 被摘掉', r.root.classList.contains('dsh-wallpaper-settings-on') === false,
+    JSON.stringify([...r.root.classList.set]))
+
+  open = true
+  if (ob) ob.cb()
+  check('C5d 再打开又恢复', r.root.classList.contains('dsh-wallpaper-settings-on') === true,
+    JSON.stringify([...r.root.classList.set]))
+}
+
+// C6 平时（没有弹层）不打标记，普通界面不受影响
+{
+  const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} }, false, { dialog: () => false })
+  check('C6 无弹层时不打标记', r.settingsOn === false, String(r.settingsOn))
 }
 
 console.log('\n' + results.filter((r) => r.ok).length + ' passed, ' + results.filter((r) => !r.ok).length + ' failed')
