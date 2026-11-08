@@ -153,9 +153,11 @@
   }
 
   // ---------- CSS ----------
-  // 设置界面单独一档：底色压到 90%，图只剩一层色，方便看清设置项。
-  // 只在这一屏生效；离开设置立刻回到该主题原本的数值，图正常显示。
-  var SETTINGS_VIEW_TINT = '90%'
+  // 进设置界面（任何分区：本插件、其他插件、原生设置）时，背景回到「没装插件时」的纯主题底色：
+  // 浅色纯白、深色纯黑，图完全让开，看设置项最清楚。退出设置立刻恢复。
+  // 实现上不写死颜色，而是把 --wp-tint 顶到 100% —— 所有 token 都是 color-mix(色源 var(--wp-tint), transparent)，
+  // 100% 就等于原来的实色，顺带把壁纸层隐藏，连弹层遮罩也换成实色。
+  var SETTINGS_SOLID_TINT = '100%'
 
   // 设置弹层的稳定特征。CSS module 的类名每版构建都会换（tklpSG_overlay → Vn-AbG_overlay），
   // 属性不会换：DSH 自己的模态层约定就是 [role="dialog"][aria-modal="true"]，
@@ -202,29 +204,37 @@
     'transform:scale(var(--wp-scale-dark,1));opacity:var(--wp-opacity-dark,1)}' +
     'html.dsh-wallpaper-on body[data-ds-dark-theme] #dsh-wallpaper-dim{opacity:var(--wp-dim-dark,0)}' +
 
-    // 设置界面单独一档（默认关，设置里打开「设置界面压暗」才生效）：
-    // 底色压到 90%（图只剩一层色），连弹层背后那层遮罩一起压，整屏是一层主题色。
-    // 默认关 = 设置界面和普通界面一样透 —— 改壁纸时能自己看见效果。
-    // 三个入口互为兜底，全部只认稳定特征，不碰会随构建变化的哈希类名（tklpSG_overlay → Vn-AbG_overlay）：
+    // 设置界面（任何分区：本插件页 / 其他插件页 / 原生设置页）回到纯主题底色：
+    // 壁纸层与暗化层在这一屏隐藏，所有背景 token 顶到 100% 实色 —— 浅色纯白、深色纯黑，
+    // 跟没装这个插件时一模一样，看设置项最清楚。退出设置立刻恢复。
+    // 三个入口互为兜底，只认稳定特征，不碰会随构建变化的哈希类名（tklpSG_overlay → Vn-AbG_overlay）：
     //   .dsh-wallpaper-settings-on    设置弹层开着（MutationObserver 维护，见 watchSettingsView）
     //   .dsh-wallpaper-settings-panel 本插件设置页挂载时的标记
     //   :has([data-shortcut-modal="settings"])  纯 CSS 兜底，不依赖任何 JS
-    // 三条都还要 .dsh-wallpaper-dim-on（配置里的 ui.settingsDim）—— 开关关着时这些规则一条都不匹配。
+    // 三条都还要 .dsh-wallpaper-dim-on（配置 ui.settingsDim，默认开）—— 关掉时这些规则一条都不匹配，
+    // 也就是「改壁纸时让设置界面照样透，能边调边看」。
+    'html.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on #dsh-wallpaper-layer,' +
+    'html.dsh-wallpaper-dim-on.dsh-wallpaper-settings-panel #dsh-wallpaper-layer,' +
+    'html.dsh-wallpaper-dim-on body:has([data-shortcut-modal="settings"]) #dsh-wallpaper-layer,' +
+    'html.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on #dsh-wallpaper-dim,' +
+    'html.dsh-wallpaper-dim-on.dsh-wallpaper-settings-panel #dsh-wallpaper-dim,' +
+    'html.dsh-wallpaper-dim-on body:has([data-shortcut-modal="settings"]) #dsh-wallpaper-dim' +
+    '{opacity:0 !important}' +
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body,' +
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-panel body' +
-    '{--wp-tint:' + SETTINGS_VIEW_TINT + ';--wp-dim-light:0;' +
-    '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-00) ' + SETTINGS_VIEW_TINT + ', transparent)}' +
+    '{--wp-tint:' + SETTINGS_SOLID_TINT + ';--wp-dim-light:0;' +
+    '--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-00)}' +
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body[data-ds-dark-theme],' +
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-panel body[data-ds-dark-theme]' +
-    '{--wp-tint-dark:' + SETTINGS_VIEW_TINT + ';--wp-dim-dark:0;' +
-    '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-950) ' + SETTINGS_VIEW_TINT + ', transparent)}' +
+    '{--wp-tint-dark:' + SETTINGS_SOLID_TINT + ';--wp-dim-dark:0;' +
+    '--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-950)}' +
     // 纯 CSS 兜底：独立成条，万一 :has() 不被支持，只是这一条整体失效，上面靠 class 的照常生效。
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on body:has([data-shortcut-modal="settings"])' +
-    '{--wp-tint:' + SETTINGS_VIEW_TINT + ';--wp-dim-light:0;' +
-    '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-00) ' + SETTINGS_VIEW_TINT + ', transparent)}' +
+    '{--wp-tint:' + SETTINGS_SOLID_TINT + ';--wp-dim-light:0;' +
+    '--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-00)}' +
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on body[data-ds-dark-theme]:has([data-shortcut-modal="settings"])' +
-    '{--wp-tint-dark:' + SETTINGS_VIEW_TINT + ';--wp-dim-dark:0;' +
-    '--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-950) ' + SETTINGS_VIEW_TINT + ', transparent)}'
+    '{--wp-tint-dark:' + SETTINGS_SOLID_TINT + ';--wp-dim-dark:0;' +
+    '--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-950)}'
 
   // 悬浮控件样式（面板、按钮；z-index 取极高值，确保盖住所有内容）
   // 按钮位置由 JS 写 left/top（可拖动），CSS 只给默认兜底与拖拽态样式
@@ -360,9 +370,9 @@
     ensureDom()
     var on = !!(state.enabled && state.images && state.images.length)
     document.documentElement.classList.toggle('dsh-wallpaper-on', on)
-    // 设置界面压暗（默认关）：打开时才让上面那组 90% 规则有机会匹配
+    // 设置界面回到纯主题底色（默认开）：只有配置里明确写 false 才关
     var ui = state.ui || {}
-    document.documentElement.classList.toggle('dsh-wallpaper-dim-on', !!(on && ui.settingsDim))
+    document.documentElement.classList.toggle('dsh-wallpaper-dim-on', !!(on && ui.settingsDim !== false))
 
     // 两套样式各自成组喂给 CSS：浅色的全部写 -light 后缀，深色的写 -dark 后缀。
     // 浏览器按 body[data-ds-dark-theme] 自己挑，前端不需要判断当前是哪个主题，

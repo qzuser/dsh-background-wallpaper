@@ -353,14 +353,16 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
     `html=${r.vars['--wp-alpha-light']} tagKeys=${onTag.join(',') || 'none'}`)
 }
 
-// C1 设置界面：底色压到 90%（图只剩一层色），深浅各一条 —— 只在 ui.settingsDim 打开时才可能匹配（见 C7）
+// C1 设置界面：背景回到纯主题底色（浅色纯白 / 深色纯黑），只在 dim-on 打开时才生效（见 C7）
 {
   const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
   const lightRule = r.css.includes('html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body')
-    && r.css.includes('--wp-tint:90%;--wp-dim-light:0')
+    && r.css.includes('--wp-tint:100%;--wp-dim-light:0')
+    && r.css.includes('--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-00)')
   const darkRule = r.css.includes('html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body[data-ds-dark-theme]')
-    && r.css.includes('--wp-tint-dark:90%;--wp-dim-dark:0')
-  check('C1 设置页压到 90%（浅/深各一条，且都要 dim-on 才生效）', lightRule && darkRule,
+    && r.css.includes('--wp-tint-dark:100%;--wp-dim-dark:0')
+    && r.css.includes('--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-950)')
+  check('C1 设置界面顶到 100% 实色（浅/深各一条，都要 dim-on 才生效）', lightRule && darkRule,
     `light=${lightRule} dark=${darkRule}`)
 }
 
@@ -390,7 +392,7 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
   const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
   const noHash = !/tklpSG|Vn-AbG/.test(r.css)
   const hasParts = [...r.css.matchAll(/:has\(([^)]*)\)/g)].map((m) => m[1])
-  const stableHas = hasParts.length === 2 && hasParts.every((s) => s === '[data-shortcut-modal="settings"]')
+  const stableHas = hasParts.length >= 2 && hasParts.every((s) => s === '[data-shortcut-modal="settings"]')
   const classRule = r.css.match(/html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on\.dsh-wallpaper-settings-on body[^{]*\{[^}]*\}/)
   const hasRule = r.css.match(/html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on body:has\([^{]*\{[^}]*\}/)
   const independent = !!classRule && !classRule[0].includes(':has(')
@@ -402,12 +404,12 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
     `noHash=${noHash} hasParts=${JSON.stringify(hasParts)} independent=${independent} attr=${stableAttr} panel=${panelClass}`)
 }
 
-// C4 遮罩也一起压：整个设置界面是一层主题色，而不是「对话框实、四周还透」
+// C4 遮罩也换成实色：整屏是纯主题底色，不是「对话框实、四周还透」
 {
   const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
-  const lightMask = r.css.includes('--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-00) 90%')
-  const darkMask = r.css.includes('--dsw-alias-bg-mask-1:color-mix(in srgb, var(--dsw-static-neutral-bluish-950) 90%')
-  check('C4 设置遮罩同步压到 90%（浅/深）', lightMask && darkMask, `light=${lightMask} dark=${darkMask}`)
+  const lightMask = r.css.includes('--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-00)')
+  const darkMask = r.css.includes('--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-950)')
+  check('C4 设置遮罩换成实色（浅/深）', lightMask && darkMask, `light=${lightMask} dark=${darkMask}`)
 }
 
 // C5 弹层探测：开着 → 打 class；关掉 → 摘掉；observer 只盯 body 的直接子节点
@@ -439,27 +441,37 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
   check('C6 无弹层时不打标记', r.settingsOn === false, String(r.settingsOn))
 }
 
-// C7 压暗开关：默认关 → 不挂 dim-on；打开 → 挂上；壁纸关掉时也不挂
+// C7 纯色底开关：默认开（只有明确 false 才关），壁纸关掉时也不挂；所有规则都带 dim-on 前提
 {
-  const off = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
-  check('C7a 默认（无 settingsDim）不挂 dim-on',
+  const def = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
+  check('C7a 默认（没有 settingsDim 字段）就挂 dim-on',
+    def.root.classList.contains('dsh-wallpaper-dim-on') === true,
+    JSON.stringify([...def.root.classList.set]))
+
+  const offCfg = { enabled: true, ...BASE_IMG, style: {}, ui: { settingsDim: false } }
+  const off = await bootClient(offCfg)
+  check('C7b settingsDim=false 时摘掉 dim-on',
     off.root.classList.contains('dsh-wallpaper-dim-on') === false,
     JSON.stringify([...off.root.classList.set]))
 
-  const onCfg = { enabled: true, ...BASE_IMG, style: {}, ui: { settingsDim: true } }
-  const on = await bootClient(onCfg)
-  check('C7b settingsDim=true 挂 dim-on', on.root.classList.contains('dsh-wallpaper-dim-on') === true,
-    JSON.stringify([...on.root.classList.set]))
-
-  const disabled = await bootClient({ ...onCfg, enabled: false })
+  const disabled = await bootClient({ ...offCfg, enabled: false, ui: { settingsDim: true } })
   check('C7c 壁纸关掉时不挂 dim-on', disabled.root.classList.contains('dsh-wallpaper-dim-on') === false,
     JSON.stringify([...disabled.root.classList.set]))
 
-  // 开关关着时，三条 90% 规则里任何一条都带 dim-on 前提 → 一条也匹配不上
-  const gated = [off.css.indexOf('settings-on body'), off.css.indexOf('settings-panel body')]
-    .map((i) => (i < 0 ? '' : off.css.slice(i - 40, i + 1)))
+  // 所有设定界面的规则都必须带 dim-on 前提 → 开关关掉时一条也匹配不上
+  const gated = [
+    def.css.indexOf('settings-on body'),
+    def.css.indexOf('settings-panel body'),
+    def.css.indexOf('settings-on #dsh-wallpaper-layer'),
+    def.css.indexOf('body:has([data-shortcut-modal="settings"]) #dsh-wallpaper-layer'),
+  ].map((i) => (i < 0 ? '' : def.css.slice(i - 46, i + 1)))
   const allGated = gated.every((s) => s.includes('dsh-wallpaper-dim-on'))
-  check('C7d 90% 规则全部带 dim-on 前提', allGated, JSON.stringify(gated))
+  check('C7d 设置界面的规则全部带 dim-on 前提', allGated, JSON.stringify(gated))
+
+  // 壁纸层与暗化层在这一屏必须真的让开
+  const hideLayer = def.css.includes('html.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on #dsh-wallpaper-layer')
+    && def.css.includes('html.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on #dsh-wallpaper-dim')
+  check('C7e 设置界面隐藏壁纸层与暗化层', hideLayer)
 }
 
 console.log('\n' + results.filter((r) => r.ok).length + ' passed, ' + results.filter((r) => !r.ok).length + ' failed')
