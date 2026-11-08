@@ -353,16 +353,14 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
     `html=${r.vars['--wp-alpha-light']} tagKeys=${onTag.join(',') || 'none'}`)
 }
 
-// C1 设置界面：背景回到纯主题底色（浅色纯白 / 深色纯黑），只在 dim-on 打开时才生效（见 C7）
+// C1 设置界面：背景图不显示、token 回原色，只在 dim-on 打开时才生效（见 C7）
 {
   const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
   const lightRule = r.css.includes('html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body')
     && r.css.includes('--wp-tint:100%;--wp-dim-light:0')
-    && r.css.includes('--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-00)')
   const darkRule = r.css.includes('html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body[data-ds-dark-theme]')
     && r.css.includes('--wp-tint-dark:100%;--wp-dim-dark:0')
-    && r.css.includes('--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-950)')
-  check('C1 设置界面顶到 100% 实色（浅/深各一条，都要 dim-on 才生效）', lightRule && darkRule,
+  check('C1 设置界面 token 回到主题原色（浅/深各一条，都要 dim-on 才生效）', lightRule && darkRule,
     `light=${lightRule} dark=${darkRule}`)
 }
 
@@ -404,12 +402,11 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
     `noHash=${noHash} hasParts=${JSON.stringify(hasParts)} independent=${independent} attr=${stableAttr} panel=${panelClass}`)
 }
 
-// C4 遮罩也换成实色：整屏是纯主题底色，不是「对话框实、四周还透」
+// C4 遮罩保持 DSH 原生：插件一处都不碰 --dsw-alias-bg-mask-1，绝不另盖一层
 {
   const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
-  const lightMask = r.css.includes('--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-00)')
-  const darkMask = r.css.includes('--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-950)')
-  check('C4 设置遮罩换成实色（浅/深）', lightMask && darkMask, `light=${lightMask} dark=${darkMask}`)
+  const touched = /--dsw-alias-bg-mask-1/.test(r.css)
+  check('C4 遮罩完全交给 DSH 原生（插件不写 mask）', !touched, `touched=${touched}`)
 }
 
 // C5 弹层探测：开着 → 打 class；关掉 → 摘掉；observer 只盯 body 的直接子节点

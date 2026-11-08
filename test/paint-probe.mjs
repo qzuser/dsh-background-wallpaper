@@ -133,16 +133,19 @@ async function cssOf(cfg) {
 }
 
 /* ---------- 2. 拼页面：DSH 的 token 色板 + 插件真实 CSS + 仿 DSH 设置弹层结构 ---------- */
-const TOKENS = `
+// DSH 的 :root 色板：浅/深两套（真实值取自 app.asar 的 alias 定义）
+const TOKENS = (dark) => `
 :root{
   --dsw-static-neutral-bluish-00:#fff; --dsw-static-neutral-bluish-50:#f9fafb;
   --dsw-static-neutral-bluish-60:#f5f6f7; --dsw-static-neutral-bluish-150:#e9ecf2;
   --dsw-static-neutral-bluish-700:#61666b; --dsw-static-neutral-bluish-800:#353638;
   --dsw-static-neutral-bluish-850:#2c2c2e; --dsw-static-neutral-bluish-875:#232324;
   --dsw-static-neutral-bluish-900:#1b1b1c; --dsw-static-neutral-bluish-950:#151517;
-  --dsw-alias-bg-mask-1:#0000003d; --dsw-mask-blur:none;
-  --dsw-alias-bg-base:#fff; --dsw-alias-bg-layer-2:#fff;
+  --dsw-alias-bg-mask-1:${dark ? '#00000080' : '#0000003d'}; --dsw-mask-blur:none;
+  --dsw-alias-bg-base:${dark ? '#151517' : '#fff'};
+  --dsw-alias-bg-layer-2:${dark ? '#2c2c2e' : '#fff'};
 }
+html{background:var(--dsw-alias-bg-base)}
 `
 
 // overlay：'attr' = 带 data-shortcut-modal（DSH 真实结构）；'bare' = 两个属性都没有（只剩插件打的 class）
@@ -173,7 +176,7 @@ const stripTriggers = (css) => css.split('}').map((r) => (r && !/settings-on|set
 
 const probe = (v) => `<!doctype html>
 <html class="${v.html}">
-<head><meta charset="utf-8"><style>${TOKENS}</style><style id="wpcss">${v.strip ? stripTriggers(PLUGIN_CSS) : PLUGIN_CSS}</style></head>
+<head><meta charset="utf-8"><style>${TOKENS(v.dark)}</style><style id="wpcss">${v.strip ? stripTriggers(PLUGIN_CSS) : PLUGIN_CSS}</style></head>
 <body${v.dark ? ' data-ds-dark-theme' : ''}>
 <div id="dsh-wallpaper-layer" style="background-color:#ff0000"></div>
 <div id="dsh-wallpaper-dim"></div>
@@ -190,6 +193,7 @@ ${overlayHtml(v.overlay)}
     layerOpacity: cs(document.getElementById('dsh-wallpaper-layer')).opacity,
     panelBg: panel ? cs(panel).backgroundColor : 'n/a',
     maskBg: cs(document.getElementById('maskprobe')).backgroundColor,
+    canvasBg: cs(document.documentElement).backgroundColor,
   };
   document.getElementById('out').textContent = JSON.stringify(out);
 </script>
@@ -238,14 +242,16 @@ const translucent = (c) => { const p = parse(c); return !!p && p.a > 0.3 && p.a 
 
 const checks = [
   ['浅色 + 设置打开 → 面板纯白不透明', white(byName['light-open'].panelBg), byName['light-open'].panelBg],
-  ['浅色 + 设置打开 → 遮罩纯白', white(byName['light-open'].maskBg), byName['light-open'].maskBg],
-  ['浅色 + 设置打开 → 壁纸层让开', byName['light-open'].layerOpacity === '0', byName['light-open'].layerOpacity],
+  ['浅色 + 设置打开 → 遮罩保持 DSH 原生 (24% 黑)', byName['light-open'].maskBg === 'rgba(0, 0, 0, 0.24)', byName['light-open'].maskBg],
+  ['浅色 + 设置打开 → 壁纸层不显示', byName['light-open'].layerOpacity === '0', byName['light-open'].layerOpacity],
+  ['浅色 + 设置打开 → 画布是主题白', white(byName['light-open'].canvasBg), byName['light-open'].canvasBg],
   ['浅色 + 普通界面 → 底色仍是该主题的 42%', byName['light-normal'].tint === '42%', byName['light-normal'].tint],
   ['浅色 + 普通界面 → 壁纸层可见', byName['light-normal'].layerOpacity === '1', byName['light-normal'].layerOpacity],
   ['浅色 + 普通界面 → 遮罩没被动过', byName['light-normal'].maskBg === 'rgba(0, 0, 0, 0.24)', byName['light-normal'].maskBg],
   ['深色 + 设置打开 → 面板是深色实色', themeDark(byName['dark-open'].panelBg), byName['dark-open'].panelBg],
-  ['深色 + 设置打开 → 遮罩深色实色', byName['dark-open'].maskBg === 'rgb(21, 21, 23)', byName['dark-open'].maskBg],
-  ['深色 + 设置打开 → 壁纸层让开', byName['dark-open'].layerOpacity === '0', byName['dark-open'].layerOpacity],
+  ['深色 + 设置打开 → 遮罩保持 DSH 原生 (50% 黑)', byName['dark-open'].maskBg === 'rgba(0, 0, 0, 0.5)', byName['dark-open'].maskBg],
+  ['深色 + 设置打开 → 壁纸层不显示', byName['dark-open'].layerOpacity === '0', byName['dark-open'].layerOpacity],
+  ['深色 + 设置打开 → 画布是主题深底', byName['dark-open'].canvasBg === 'rgb(21, 21, 23)', byName['dark-open'].canvasBg],
   ['开关关掉 → 面板仍半透明', translucent(byName['switch-off-open'].panelBg), byName['switch-off-open'].panelBg],
   ['开关关掉 → 壁纸层仍可见', byName['switch-off-open'].layerOpacity === '1', byName['switch-off-open'].layerOpacity],
   ['只靠插件 class（无 data 属性）→ 也纯白', white(byName['class-only-open'].panelBg) && byName['class-only-open'].layerOpacity === '0',

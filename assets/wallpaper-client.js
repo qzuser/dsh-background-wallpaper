@@ -204,11 +204,11 @@
     'transform:scale(var(--wp-scale-dark,1));opacity:var(--wp-opacity-dark,1)}' +
     'html.dsh-wallpaper-on body[data-ds-dark-theme] #dsh-wallpaper-dim{opacity:var(--wp-dim-dark,0)}' +
 
-    // 设置界面（任何分区：本插件页 / 其他插件页 / 原生设置页）回到纯主题底色：
-    // 壁纸层与暗化层在这一屏隐藏，所有背景 token 顶到 100% 实色 —— 浅色纯白、深色纯黑，
-    // 跟没装这个插件时一模一样，看设置项最清楚。退出设置立刻恢复。
+    // 设置界面（任何分区：本插件页 / 其他插件页 / 原生设置页）就是「把背景图关掉」：
+    // 壁纸层与暗化层在这一屏隐藏，背景 token 回到该主题原本的实色（100% = 调色板原色，不是另盖一层），
+    // 遮罩保持 DSH 原生那层不动 —— 结果跟没装这个插件时一模一样，退出设置立刻恢复。
     // 三个入口互为兜底，只认稳定特征，不碰会随构建变化的哈希类名（tklpSG_overlay → Vn-AbG_overlay）：
-    //   .dsh-wallpaper-settings-on    设置弹层开着（MutationObserver 维护，见 watchSettingsView）
+    //   .dsh-wallpaper-settings-on    设置弹层开着（MutationObserver + 心跳维护，见 watchSettingsView）
     //   .dsh-wallpaper-settings-panel 本插件设置页挂载时的标记
     //   :has([data-shortcut-modal="settings"])  纯 CSS 兜底，不依赖任何 JS
     // 三条都还要 .dsh-wallpaper-dim-on（配置 ui.settingsDim，默认开）—— 关掉时这些规则一条都不匹配，
@@ -222,19 +222,15 @@
     '{opacity:0 !important}' +
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body,' +
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-panel body' +
-    '{--wp-tint:' + SETTINGS_SOLID_TINT + ';--wp-dim-light:0;' +
-    '--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-00)}' +
+    '{--wp-tint:' + SETTINGS_SOLID_TINT + ';--wp-dim-light:0}' +
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-on body[data-ds-dark-theme],' +
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on.dsh-wallpaper-settings-panel body[data-ds-dark-theme]' +
-    '{--wp-tint-dark:' + SETTINGS_SOLID_TINT + ';--wp-dim-dark:0;' +
-    '--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-950)}' +
+    '{--wp-tint-dark:' + SETTINGS_SOLID_TINT + ';--wp-dim-dark:0}' +
     // 纯 CSS 兜底：独立成条，万一 :has() 不被支持，只是这一条整体失效，上面靠 class 的照常生效。
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on body:has([data-shortcut-modal="settings"])' +
-    '{--wp-tint:' + SETTINGS_SOLID_TINT + ';--wp-dim-light:0;' +
-    '--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-00)}' +
+    '{--wp-tint:' + SETTINGS_SOLID_TINT + ';--wp-dim-light:0}' +
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on body[data-ds-dark-theme]:has([data-shortcut-modal="settings"])' +
-    '{--wp-tint-dark:' + SETTINGS_SOLID_TINT + ';--wp-dim-dark:0;' +
-    '--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-950)}' +
+    '{--wp-tint-dark:' + SETTINGS_SOLID_TINT + ';--wp-dim-dark:0}' +
     // 最后一道兜底：不依赖 :has、不依赖 class、不依赖任何 JS —— 直接把实色 token 重设在设置面板那一块上。
     // 就算上面所有触发都失效（浏览器不认 :has()、弹层不是 body 的直接子节点、容器复用只切显隐），
     // 设置面板本体也一定是纯白 / 深色实底，不会再透出照片。

@@ -207,8 +207,8 @@ check('renders theme tabs', text.includes('浅色') && text.includes('深色'))
 check('explains two independent sets', text.includes('各自独立') || text.includes('深浅各一套') || text.includes('预览按当前页签这套参数画'))
 check('renders shortcut toggle', text.includes('显示悬浮按钮'))
 check('default showButton off in note', text.includes('默认关掉'))
-check('renders 设置界面纯色底 switch', text.includes('设置界面用纯色底') && text.includes('纯白 / 纯黑'))
-check('explains 纯色底默认开', text.includes('开（默认）') && text.includes('浅色纯白、深色纯黑'))
+check('renders 设置界面不显示壁纸 switch', text.includes('设置界面不显示壁纸') && text.includes('不显示（默认）'))
+check('explains 默认不显示', text.includes('开（默认）') && text.includes('背景图直接不显示'))
 
 // 5b. 样式预览：按当前页签那套参数画（图 → 底色 → 遮罩 → 界面示意）
 {
