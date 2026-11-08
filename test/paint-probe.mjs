@@ -153,6 +153,10 @@ const VARIANTS = [
   { name: 'switch-off-open', html: 'dsh-wallpaper-on dsh-wallpaper-settings-on', dark: false, overlay: 'attr' },
   { name: 'class-only-open', html: 'dsh-wallpaper-on dsh-wallpaper-dim-on dsh-wallpaper-settings-panel', dark: false, overlay: 'bare' },
   { name: 'css-only-open', html: 'dsh-wallpaper-on dsh-wallpaper-dim-on', dark: false, overlay: 'attr' },
+  // 最坏情况：把带 settings-on / :has 的规则全删掉，只剩「按 data 属性重设实色 token」那一条兜底
+  { name: 'attr-only-open', html: 'dsh-wallpaper-on dsh-wallpaper-dim-on', dark: false, overlay: 'attr', strip: true },
+  // 对照：既没有触发规则、面板也没有 data 属性 → 应该还是半透明
+  { name: 'nothing-open', html: 'dsh-wallpaper-on dsh-wallpaper-dim-on', dark: false, overlay: 'bare', strip: true },
 ]
 
 const overlayHtml = (kind) => (kind === 'none' ? '' : `
@@ -164,9 +168,12 @@ const overlayHtml = (kind) => (kind === 'none' ? '' : `
 
 const PLUGIN_CSS = await cssOf({ enabled: true, images: [{ id: 'a', kind: 'path', src: 'a.jpg', name: 'a.jpg' }], currentId: 'a', style: {} })
 
+// 模拟「所有全局触发都失效」：把带 settings-on / settings-panel / :has( 的规则整条删掉
+const stripTriggers = (css) => css.split('}').map((r) => (r && !/settings-on|settings-panel|:has\(/.test(r) ? r + '}' : '')).join('')
+
 const probe = (v) => `<!doctype html>
 <html class="${v.html}">
-<head><meta charset="utf-8"><style>${TOKENS}</style><style id="wpcss">${PLUGIN_CSS}</style></head>
+<head><meta charset="utf-8"><style>${TOKENS}</style><style id="wpcss">${v.strip ? stripTriggers(PLUGIN_CSS) : PLUGIN_CSS}</style></head>
 <body${v.dark ? ' data-ds-dark-theme' : ''}>
 <div id="dsh-wallpaper-layer" style="background-color:#ff0000"></div>
 <div id="dsh-wallpaper-dim"></div>
@@ -245,6 +252,10 @@ const checks = [
     byName['class-only-open'].panelBg],
   ['只靠 :has（无 class）→ 也纯白', white(byName['css-only-open'].panelBg) && byName['css-only-open'].layerOpacity === '0',
     byName['css-only-open'].panelBg],
+  // 最坏情况：全局触发规则全被删掉（模拟浏览器不认 :has、弹层不在 body 直接子节点、JS 也没打上 class）
+  // → 只剩按 data 属性重设实色 token 那条兜底，面板也必须是不透明白的
+  ['触发全失效 + 只有 data 属性 → 面板仍纯白', white(byName['attr-only-open'].panelBg), byName['attr-only-open'].panelBg],
+  ['触发全失效 + 没有 data 属性 → 面板半透明（对照）', translucent(byName['nothing-open'].panelBg), byName['nothing-open'].panelBg],
 ]
 
 let bad = 0

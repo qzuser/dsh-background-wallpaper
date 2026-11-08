@@ -234,7 +234,26 @@
     '--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-00)}' +
     'html.dsh-wallpaper-on.dsh-wallpaper-dim-on body[data-ds-dark-theme]:has([data-shortcut-modal="settings"])' +
     '{--wp-tint-dark:' + SETTINGS_SOLID_TINT + ';--wp-dim-dark:0;' +
-    '--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-950)}'
+    '--dsw-alias-bg-mask-1:var(--dsw-static-neutral-bluish-950)}' +
+    // 最后一道兜底：不依赖 :has、不依赖 class、不依赖任何 JS —— 直接把实色 token 重设在设置面板那一块上。
+    // 就算上面所有触发都失效（浏览器不认 :has()、弹层不是 body 的直接子节点、容器复用只切显隐），
+    // 设置面板本体也一定是纯白 / 深色实底，不会再透出照片。
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on [data-shortcut-modal="settings"]{' +
+    '--dsw-alias-bg-base:var(--dsw-static-neutral-bluish-00);' +
+    '--dsw-alias-bg-layer-1:var(--dsw-static-neutral-bluish-00);' +
+    '--dsw-alias-bg-layer-2:var(--dsw-static-neutral-bluish-00);' +
+    '--dsw-alias-bg-layer-3:var(--dsw-static-neutral-bluish-00);' +
+    '--dsw-alias-bg-module-platform:var(--dsw-static-neutral-bluish-60);' +
+    '--dsw-specific-sidebar-fill:var(--dsw-static-neutral-bluish-50);' +
+    '--dsw-alias-bg-overlay:var(--dsw-static-neutral-bluish-150)}' +
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on body[data-ds-dark-theme] [data-shortcut-modal="settings"]{' +
+    '--dsw-alias-bg-base:var(--dsw-static-neutral-bluish-950);' +
+    '--dsw-alias-bg-layer-1:var(--dsw-static-neutral-bluish-875);' +
+    '--dsw-alias-bg-layer-2:var(--dsw-static-neutral-bluish-850);' +
+    '--dsw-alias-bg-layer-3:var(--dsw-static-neutral-bluish-800);' +
+    '--dsw-alias-bg-module-platform:var(--dsw-static-neutral-bluish-800);' +
+    '--dsw-specific-sidebar-fill:var(--dsw-static-neutral-bluish-900);' +
+    '--dsw-alias-bg-overlay:var(--dsw-static-neutral-bluish-700)}'
 
   // 悬浮控件样式（面板、按钮；z-index 取极高值，确保盖住所有内容）
   // 按钮位置由 JS 写 left/top（可拖动），CSS 只给默认兜底与拖拽态样式
@@ -339,8 +358,14 @@
 
   function watchSettingsView() {
     markSettingsView()
-    if (settingsObserver || typeof MutationObserver === 'undefined') return
+    if (settingsObserver) return
+    // 心跳：700ms 一次 querySelector，兜住「弹层不是 body 的直接子节点」「容器复用、只切显隐」
+    // 这类不长眼的实现；开销可以忽略，但能保证 class 一定跟得上。
+    setInterval(markSettingsView, 700)
+    if (typeof MutationObserver === 'undefined') return
     if (typeof document === 'undefined' || !document.body) return
+    // 变化驱动：弹层是 createPortal 到 body 的直接子节点，开关都会让 body 的子节点变动。
+    // 只监听 childList、不监听 subtree —— 聊天流一直在吐节点，subtree 监听太贵。
     settingsObserver = new MutationObserver(markSettingsView)
     settingsObserver.observe(document.body, { childList: true })
   }

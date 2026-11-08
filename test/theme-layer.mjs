@@ -474,5 +474,28 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
   check('C7e 设置界面隐藏壁纸层与暗化层', hideLayer)
 }
 
+// C8 兜底：不依赖 :has / class / JS，直接按 data 属性把实色 token 重设在设置面板上
+{
+  const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
+  const lightRule = r.css.match(/html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on \[data-shortcut-modal="settings"\]\{[^}]*\}/)
+  const darkRule = r.css.match(/html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on body\[data-ds-dark-theme\] \[data-shortcut-modal="settings"\]\{[^}]*\}/)
+  const lightOk = !!lightRule
+    && lightRule[0].includes('--dsw-alias-bg-layer-2:var(--dsw-static-neutral-bluish-00)')
+    && lightRule[0].includes('--dsw-alias-bg-base:var(--dsw-static-neutral-bluish-00)')
+  const darkOk = !!darkRule
+    && darkRule[0].includes('--dsw-alias-bg-layer-2:var(--dsw-static-neutral-bluish-850)')
+    && darkRule[0].includes('--dsw-alias-bg-base:var(--dsw-static-neutral-bluish-950)')
+  const noHasNoClass = !!lightRule && !lightRule[0].includes(':has(')
+    && !lightRule[0].includes('settings-on') && !lightRule[0].includes('settings-panel')
+  check('C8 data 属性兜底重设实色 token（无 :has / 无 class）', lightOk && darkOk && noHasNoClass,
+    `light=${lightOk} dark=${darkOk} independent=${noHasNoClass}`)
+}
+
+// C9 心跳：万一弹层不是 body 直接子节点、或容器复用只切显隐，也要靠轮询把 class 跟上
+{
+  check('C9 有 700ms 心跳兜底', SCRIPT.includes('setInterval(markSettingsView, 700)')
+    && SCRIPT.includes('settingsObserver.observe(document.body, { childList: true })'))
+}
+
 console.log('\n' + results.filter((r) => r.ok).length + ' passed, ' + results.filter((r) => !r.ok).length + ' failed')
 if (results.some((r) => !r.ok)) process.exitCode = 1

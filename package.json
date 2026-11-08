@@ -1,6 +1,6 @@
 {
   "name": "dsh-background-wallpaper",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "DSH 背景图插件：把 DSH 界面背景换成自己的图，支持多图轮换、深浅两套独立样式、设置页实时预览与悬浮按钮。",
   "keywords": [
     "dsh",
