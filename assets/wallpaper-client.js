@@ -249,6 +249,36 @@
     '--dsw-alias-bg-layer-3:var(--dsw-static-neutral-bluish-800);' +
     '--dsw-alias-bg-module-platform:var(--dsw-static-neutral-bluish-800);' +
     '--dsw-specific-sidebar-fill:var(--dsw-static-neutral-bluish-900);' +
+    '--dsw-alias-bg-overlay:var(--dsw-static-neutral-bluish-700)}' +
+
+    // 知识库页（dsh-knowledge 的全屏 overlay，根节点 .kb-panel-in，z-index 300）也是「把背景图关掉」：
+    // 它整套配色就建在 --dsw-alias-bg-base / -layer-1 / -layer-2 上，壁纸把这三个 token 掺成半透明后，
+    // 面板底色（C.bg = bg-base）跟着变透，照片直接透到文档列表和正文里，文字没法读。
+    // 跟设置界面同一套收法：壁纸层与暗化层隐藏、token 回到 100% 实色色板，退出知识库立刻恢复。
+    // 触发仍然只认 .dsh-wallpaper-dim-on（配置 ui.settingsDim，默认开），关掉时知识库照样透。
+    'html.dsh-wallpaper-dim-on body:has(.kb-panel-in) #dsh-wallpaper-layer,' +
+    'html.dsh-wallpaper-dim-on body:has(.kb-panel-in) #dsh-wallpaper-dim' +
+    '{opacity:0 !important}' +
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on body:has(.kb-panel-in)' +
+    '{--wp-tint:' + SETTINGS_SOLID_TINT + ';--wp-dim-light:0}' +
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on body[data-ds-dark-theme]:has(.kb-panel-in)' +
+    '{--wp-tint-dark:' + SETTINGS_SOLID_TINT + ';--wp-dim-dark:0}' +
+    // 不依赖 :has() 的兜底：直接把实色 token 重设在知识库面板本体上（浅色 / 深色各一条）。
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on .kb-panel-in{' +
+    '--dsw-alias-bg-base:var(--dsw-static-neutral-bluish-00);' +
+    '--dsw-alias-bg-layer-1:var(--dsw-static-neutral-bluish-00);' +
+    '--dsw-alias-bg-layer-2:var(--dsw-static-neutral-bluish-00);' +
+    '--dsw-alias-bg-layer-3:var(--dsw-static-neutral-bluish-00);' +
+    '--dsw-alias-bg-module-platform:var(--dsw-static-neutral-bluish-60);' +
+    '--dsw-specific-sidebar-fill:var(--dsw-static-neutral-bluish-50);' +
+    '--dsw-alias-bg-overlay:var(--dsw-static-neutral-bluish-150)}' +
+    'html.dsh-wallpaper-on.dsh-wallpaper-dim-on body[data-ds-dark-theme] .kb-panel-in{' +
+    '--dsw-alias-bg-base:var(--dsw-static-neutral-bluish-950);' +
+    '--dsw-alias-bg-layer-1:var(--dsw-static-neutral-bluish-875);' +
+    '--dsw-alias-bg-layer-2:var(--dsw-static-neutral-bluish-850);' +
+    '--dsw-alias-bg-layer-3:var(--dsw-static-neutral-bluish-800);' +
+    '--dsw-alias-bg-module-platform:var(--dsw-static-neutral-bluish-800);' +
+    '--dsw-specific-sidebar-fill:var(--dsw-static-neutral-bluish-900);' +
     '--dsw-alias-bg-overlay:var(--dsw-static-neutral-bluish-700)}'
 
   // 悬浮控件样式（面板、按钮；z-index 取极高值，确保盖住所有内容）

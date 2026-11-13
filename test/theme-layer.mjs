@@ -385,21 +385,39 @@ const BASE_IMG = { images: [{ id: 'a1', kind: 'path', src: 'C:/pics/one.jpg', na
     `base=${baseDark} settings=${settingsRule} stray=${strayRule}`)
 }
 
-// C3 不依赖哈希类名；:has 只认稳定属性，且单独成条（不支持 :has 也不连累 class 那两条）
+// C3 不依赖哈希类名；:has 只认稳定特征（设置弹层属性 / 知识库面板语义类名），且单独成条
+const STABLE_HAS_PARTS = ['[data-shortcut-modal="settings"]', '.kb-panel-in']
 {
   const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
   const noHash = !/tklpSG|Vn-AbG/.test(r.css)
   const hasParts = [...r.css.matchAll(/:has\(([^)]*)\)/g)].map((m) => m[1])
-  const stableHas = hasParts.length >= 2 && hasParts.every((s) => s === '[data-shortcut-modal="settings"]')
+  const stableHas = hasParts.length >= 2 && hasParts.every((s) => STABLE_HAS_PARTS.includes(s))
   const classRule = r.css.match(/html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on\.dsh-wallpaper-settings-on body[^{]*\{[^}]*\}/)
   const hasRule = r.css.match(/html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on body:has\([^{]*\{[^}]*\}/)
   const independent = !!classRule && !classRule[0].includes(':has(')
     && !!hasRule && !hasRule[0].includes('settings-on')
   const stableAttr = SCRIPT.includes('SETTINGS_DIALOG_SELECTOR = \'[data-shortcut-modal="settings"]')
   const panelClass = r.css.includes('.dsh-wallpaper-settings-panel body')
-  check('C3 无哈希类名、:has 只认稳定属性且独立成条',
+  check('C3 无哈希类名、:has 只认稳定特征且独立成条',
     noHash && stableHas && independent && stableAttr && panelClass,
     `noHash=${noHash} hasParts=${JSON.stringify(hasParts)} independent=${independent} attr=${stableAttr} panel=${panelClass}`)
+}
+
+// C10 知识库页（.kb-panel-in 全屏 overlay）跟设置界面同一套收法，否则面板底色半透明会透出照片
+{
+  const r = await bootClient({ enabled: true, ...BASE_IMG, style: {} })
+  const css = r.css
+  const hideLayer = /html\.dsh-wallpaper-dim-on body:has\(\.kb-panel-in\) #dsh-wallpaper-layer,html\.dsh-wallpaper-dim-on body:has\(\.kb-panel-in\) #dsh-wallpaper-dim\{opacity:0 !important\}/.test(css)
+  const tintLight = /html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on body:has\(\.kb-panel-in\)\{--wp-tint:100%;--wp-dim-light:0\}/.test(css)
+  const tintDark = /html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on body\[data-ds-dark-theme\]:has\(\.kb-panel-in\)\{--wp-tint-dark:100%;--wp-dim-dark:0\}/.test(css)
+  const tokenLight = /html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on \.kb-panel-in\{--dsw-alias-bg-base:var\(--dsw-static-neutral-bluish-00\);/.test(css)
+  const tokenDark = /html\.dsh-wallpaper-on\.dsh-wallpaper-dim-on body\[data-ds-dark-theme\] \.kb-panel-in\{--dsw-alias-bg-base:var\(--dsw-static-neutral-bluish-950\);/.test(css)
+  const kbRules = css.match(/[^{}]*:has\(\.kb-panel-in\)[^{]*\{/g) || []
+  // 3 条 :has 规则（收起壁纸层 / 浅色 token / 深色 token）；面板本体那两条 token 兜底不带 :has
+  const gatedByDim = kbRules.length === 3 && kbRules.every((s) => s.includes('.dsh-wallpaper-dim-on'))
+  check('C10 知识库页也收起壁纸层并回到实色底色（浅/深各一条 + 不依赖 :has 的 token 兜底）',
+    hideLayer && tintLight && tintDark && tokenLight && tokenDark && gatedByDim,
+    `hide=${hideLayer} tintL=${tintLight} tintD=${tintDark} tokL=${tokenLight} tokD=${tokenDark} dimGated=${gatedByDim}`)
 }
 
 // C4 遮罩保持 DSH 原生：插件一处都不碰 --dsw-alias-bg-mask-1，绝不另盖一层
